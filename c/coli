@@ -1060,6 +1060,7 @@ def env_for(a):
             # (#341, #2286); not under passive, where it would mean 200 ms of spinning
             if e["OMP_WAIT_POLICY"].strip().lower() == "active":
                 e.setdefault("KMP_BLOCKTIME", "200")
+    if sys.platform == "win32" or sys.platform.startswith("linux"):
         # Default Windows misurati sul box di riferimento (docs/tuning-9950x3d-5090.md),
         # tutti lossless e tutti setdefault (un override esplicito vince sempre):
         # - DIRECT=1: 10.7 GB/s O_DIRECT vs 9.0 buffered (iobench, anche a cache
@@ -1068,6 +1069,16 @@ def env_for(a):
         #   solo l'I/O). PIPE_WORKERS resta al default 8 (sweep 4/8/16 piatto).
         # - PILOT_REAL=1: prefetch cross-layer con load veri (unico prefetch
         #   funzionante su Windows: fadvise e' no-op), +11%, hit rate +19 punti.
+        # Linux gets the same three. Only the GLM engine (colibri.c) reads them,
+        # and the setup's recorded GLM run omits --auto-tier (the engine sizes
+        # its own cache), so neither the planner's PIPE=1 nor a tune profile
+        # reached a plain `coli start` / `coli serve`: Linux ran buffered,
+        # unpipelined reads with no prefetch, while the engine's own PIPE
+        # default is 0 off Windows. On a Strix Halo (Ryzen AI Max+ 395, #200)
+        # DIRECT=1 alone measured +65%, and DIRECT=1 PIPE=1 PILOT_REAL=1
+        # PILOT_TWO=1 reached 1.83 tok/s. Under O_DIRECT the fadvise prefetch
+        # (PILOT=1) has no page cache to fill, so PILOT_REAL is the matching
+        # prefetch. All three are lossless; macOS has no O_DIRECT and is left out.
         e.setdefault("DIRECT", "1")
         e.setdefault("PIPE", "1")
         e.setdefault("PILOT_REAL", "1")
