@@ -19,8 +19,9 @@ is safe on any machine. See also [SETTINGS.md](SETTINGS.md) and
 | `THINK=1` | enable GLM-5.2's reasoning block |
 | `PILOT=1` | router-lookahead disk prefetch (see below) |
 | `URING=1` | Linux-only batched expert I/O (implies `PIPE=1`) |
-| `PIPE=0` | disable the async expert-load pool (default ON — overlaps `pread` with matmul, −18% disk service) |
-| `DIRECT=1` | O_DIRECT expert reads (measured **+65%** alone on a Strix Halo, [#200](https://github.com/JustVugg/colibri/issues/200)) |
+| `PIPE=0` | disable the async expert-load pool (overlaps `pread` with matmul, −18% disk service). ON when launched through `coli` on Windows and Linux; the engine binary run directly defaults it ON only on Windows |
+| `DIRECT=0` | disable O_DIRECT expert reads (measured **+65%** alone on a Strix Halo, [#200](https://github.com/JustVugg/colibri/issues/200)). ON when launched through `coli` on Windows and Linux; a filesystem without O_DIRECT falls back to buffered reads. Neutral or worse on some drives: `coli tune` measures it both ways |
+| `PILOT_REAL=0` | disable the cross-layer prefetch with real loads, the prefetch that works under O_DIRECT. ON when launched through `coli` on Windows and Linux |
 | `COLI_NUMA=1` | interleave resident weights across NUMA nodes on multi-socket hosts ([#82](https://github.com/JustVugg/colibri/issues/82)) |
 | `CACHE_ROUTE=1` | cache-aware max-rank routing (opt-in, [#199](https://github.com/JustVugg/colibri/issues/199)) |
 | `AUTOPIN=0` | disable the learning cache's auto-pin |

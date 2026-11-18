@@ -2,9 +2,11 @@
 
 Carica `coli` come modulo (ha la guardia __main__) e verifica il contratto:
 - win32: i tre default I/O e il blocco OMP sono setdefault
+- linux: gli stessi tre default I/O (setdefault), ma non il blocco OMP
+  (su Linux il motore fa il proprio self-exec OMP)
 - un override esplicito dell'utente vince sempre
 - COLI_NO_OMP_TUNE spegne SOLO il blocco OMP, non i default I/O
-- non-win32: env_for non tocca nulla di tutto questo
+- altre piattaforme (macOS): env_for non tocca nulla di tutto questo
 """
 import importlib.machinery
 import importlib.util
@@ -81,8 +83,25 @@ class EnvDefaultsTest(unittest.TestCase):
         self.assertEqual(e["DIRECT"], "1")   # i default I/O restano attivi
         self.assertEqual(e["PIPE"], "1")
 
-    def test_non_windows_untouched(self):
+    def test_linux_sets_io_defaults_not_omp(self):
+        # The GLM run setup records omits --auto-tier, so these setdefaults are
+        # the only way a plain Linux `coli start`/`serve` gets the lossless I/O
+        # path; the OMP block stays Windows-only (the engine self-execs on Linux).
         e = self.env_for_with({}, "linux")
+        self.assertEqual(e["DIRECT"], "1")
+        self.assertEqual(e["PIPE"], "1")
+        self.assertEqual(e["PILOT_REAL"], "1")
+        for k in ("OMP_WAIT_POLICY", "GOMP_SPINCOUNT", "KMP_BLOCKTIME"):
+            self.assertNotIn(k, e)
+
+    def test_linux_explicit_override_wins(self):
+        e = self.env_for_with({"DIRECT": "0", "PIPE": "0", "PILOT_REAL": "0"}, "linux")
+        self.assertEqual(e["DIRECT"], "0")
+        self.assertEqual(e["PIPE"], "0")
+        self.assertEqual(e["PILOT_REAL"], "0")
+
+    def test_macos_untouched(self):
+        e = self.env_for_with({}, "darwin")
         for k in ("DIRECT", "PIPE", "PILOT_REAL", "OMP_WAIT_POLICY", "KMP_BLOCKTIME"):
             self.assertNotIn(k, e)
 

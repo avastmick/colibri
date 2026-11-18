@@ -112,6 +112,18 @@ class AutotuneUnitTest(unittest.TestCase):
                 # nothing left to measure on those engines.
                 self.assertTrue(any(name.startswith("omp-") for name in steps), steps)
 
+    def test_glm_io_knobs_are_swept_off_when_the_launcher_turned_them_on(self):
+        """The launcher defaults DIRECT=1 PIPE=1 on Windows and Linux, so a tune
+        that only tried turning them on would never measure them off, and
+        O_DIRECT is neutral or worse on some drives."""
+        plan = {"cpu": {"physical_cores": 8, "sockets": 1},
+                "tiers": {"disk": {"cold_expert_bytes": 1 << 30}, "vram": {"devices": []}}}
+        steps = dict(candidate_steps(plan, {"DIRECT": "1", "PIPE": "1"}, "glm"))
+        self.assertEqual(steps["direct-off"], {"DIRECT": "0"})
+        self.assertEqual(steps["io-pipe-off"], {"PIPE": "0"})
+        self.assertNotIn("direct-on", steps)
+        self.assertNotIn("io-pipe-on", steps)
+
     def test_cuda_and_numa_knobs_are_not_swept_on_other_engines(self):
         """COLI_CUDA_PIPE and COLI_NUMA are read by colibri.c alone, and
         COLI_CUDA_ASYNC only on the grouped-expert CUDA call colibri.c makes.

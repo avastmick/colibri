@@ -205,12 +205,15 @@ def candidate_steps(plan: dict, base_env: dict, arch: str = "glm") -> list[tuple
                 steps.append((f"cuda-pipe-{value}", {"COLI_CUDA_PIPE": str(value)}))
         steps.append(("cuda-sync", {"COLI_CUDA_ASYNC": "0"}))
     if arch == "glm" and plan.get("tiers", {}).get("disk", {}).get("cold_expert_bytes", 0) > 0:
+        # Try the opposite of the starting value. The launcher defaults both on
+        # (Windows and Linux), and O_DIRECT is neutral or worse on some drives,
+        # so the sweep must be able to measure them off as well as on.
         direct = int(base_env.get("DIRECT", "0"))
-        if direct != 1:
-            steps.append(("direct-on", {"DIRECT": "1"}))
+        steps.append(("direct-on", {"DIRECT": "1"}) if direct != 1
+                     else ("direct-off", {"DIRECT": "0"}))
         pipe = int(base_env.get("PIPE", "0"))
-        if pipe != 1:
-            steps.append(("io-pipe-on", {"PIPE": "1"}))
+        steps.append(("io-pipe-on", {"PIPE": "1"}) if pipe != 1
+                     else ("io-pipe-off", {"PIPE": "0"}))
     if (arch == "deepseek_v4"
             and plan.get("tiers", {}).get("disk", {}).get("cold_expert_bytes", 0) > 0):
         # The pool default (9) was measured on one CPU/NVMe pair.  GPU-tier
